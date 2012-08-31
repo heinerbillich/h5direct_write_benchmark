@@ -53,7 +53,7 @@ H5Z_class2_t psi_passthrough_filter_definition =
 #define CHUNK1          DIM1
 
 int
-main (void)
+main (int argc, char *argv[])
 {
     hid_t           file, space, dset, dset2, dcpl;    /* Handles */
     herr_t          status;
@@ -262,7 +262,7 @@ main (void)
     status = H5Fclose (file);
 
 
-    printf("\n>> Read data back ...\n");
+    printf(">> Read data back ...\n");
     /*
      * Now we begin the read section of this example.
      */
@@ -340,6 +340,7 @@ main (void)
     status = H5Dclose (dset);
     status = H5Fclose (file);
 
+    printf("\n%s: All Tests PASSED\n", argv[0]);
     return 0;
 }
 

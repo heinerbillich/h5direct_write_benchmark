@@ -1,3 +1,6 @@
 *.o
 test1.h5
+*.raw
+*.h5
 src/test1
+src/h5direct_write_benchmark
