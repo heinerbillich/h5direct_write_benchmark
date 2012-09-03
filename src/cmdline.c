@@ -39,10 +39,12 @@ const char *gengetopt_args_info_help[] = {
   "  -z, --nimages=INT      number of images (z-direction of array)",
   "  -c, --chunk-size=INT   number of images per chunk  (default=`1')",
   "  -o, --basename=STRING  basename of output files, will add .data and .h5  \n                           (default=`bench')",
+  "  -t, --traditional      run with traditional API, don't use direct writes  \n                           (default=off)",
     0
 };
 
 typedef enum {ARG_NO
+  , ARG_FLAG
   , ARG_STRING
   , ARG_INT
 } cmdline_parser_arg_type;
@@ -72,6 +74,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->nimages_given = 0 ;
   args_info->chunk_size_given = 0 ;
   args_info->basename_given = 0 ;
+  args_info->traditional_given = 0 ;
 }
 
 static
@@ -85,6 +88,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->chunk_size_orig = NULL;
   args_info->basename_arg = gengetopt_strdup ("bench");
   args_info->basename_orig = NULL;
+  args_info->traditional_flag = 0;
   
 }
 
@@ -100,6 +104,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->nimages_help = gengetopt_args_info_help[4] ;
   args_info->chunk_size_help = gengetopt_args_info_help[5] ;
   args_info->basename_help = gengetopt_args_info_help[6] ;
+  args_info->traditional_help = gengetopt_args_info_help[7] ;
   
 }
 
@@ -238,6 +243,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "chunk-size", args_info->chunk_size_orig, 0);
   if (args_info->basename_given)
     write_into_file(outfile, "basename", args_info->basename_orig, 0);
+  if (args_info->traditional_given)
+    write_into_file(outfile, "traditional", 0, 0 );
   
 
   i = EXIT_SUCCESS;
@@ -444,6 +451,9 @@ int update_arg(void *field, char **orig_field,
     val = possible_values[found];
 
   switch(arg_type) {
+  case ARG_FLAG:
+    *((int *)field) = !*((int *)field);
+    break;
   case ARG_INT:
     if (val) *((int *)field) = strtol (val, &stop_char, 0);
     break;
@@ -474,6 +484,7 @@ int update_arg(void *field, char **orig_field,
   /* store the original value */
   switch(arg_type) {
   case ARG_NO:
+  case ARG_FLAG:
     break;
   default:
     if (value && orig_field) {
@@ -535,10 +546,11 @@ cmdline_parser_internal (
         { "nimages",	1, NULL, 'z' },
         { "chunk-size",	1, NULL, 'c' },
         { "basename",	1, NULL, 'o' },
+        { "traditional",	0, NULL, 't' },
         { 0,  0, 0, 0 }
       };
 
-      c = getopt_long (argc, argv, "hVx:y:z:c:o:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVx:y:z:c:o:t", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -610,6 +622,16 @@ cmdline_parser_internal (
               &(local_args_info.basename_given), optarg, 0, "bench", ARG_STRING,
               check_ambiguity, override, 0, 0,
               "basename", 'o',
+              additional_error))
+            goto failure;
+        
+          break;
+        case 't':	/* run with traditional API, don't use direct writes.  */
+        
+        
+          if (update_arg((void *)&(args_info->traditional_flag), 0, &(args_info->traditional_given),
+              &(local_args_info.traditional_given), optarg, 0, 0, ARG_FLAG,
+              check_ambiguity, override, 1, 0, "traditional", 't',
               additional_error))
             goto failure;
         

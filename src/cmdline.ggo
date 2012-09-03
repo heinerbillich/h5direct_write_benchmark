@@ -6,4 +6,5 @@ option "nx"    x "number of pixels in x-direction (fastest changing)" int requir
 option "ny"    y "number of pixels in y-direction " int required
 option "nimages"    z "number of images (z-direction of array)" int required
 option "chunk-size"  c "number of images per chunk"                        int default="1" optional
-option "basename" o "basename of output files, will add .data and .h5"                     string default="bench" optional
+option "basename" o "basename of output files, will add .data and .h5"                    string default="bench" optional
+option "traditional" t "run with traditional API, don't use direct writes" flag off 

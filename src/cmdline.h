@@ -54,6 +54,8 @@ struct gengetopt_args_info
   char * basename_arg;	/**< @brief basename of output files, will add .data and .h5 (default='bench').  */
   char * basename_orig;	/**< @brief basename of output files, will add .data and .h5 original value given at command line.  */
   const char *basename_help; /**< @brief basename of output files, will add .data and .h5 help description.  */
+  int traditional_flag;	/**< @brief run with traditional API, don't use direct writes (default=off).  */
+  const char *traditional_help; /**< @brief run with traditional API, don't use direct writes help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -62,6 +64,7 @@ struct gengetopt_args_info
   unsigned int nimages_given ;	/**< @brief Whether nimages was given.  */
   unsigned int chunk_size_given ;	/**< @brief Whether chunk-size was given.  */
   unsigned int basename_given ;	/**< @brief Whether basename was given.  */
+  unsigned int traditional_given ;	/**< @brief Whether traditional was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */
   unsigned inputs_num ; /**< @brief unamed options number */

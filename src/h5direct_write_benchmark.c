@@ -12,12 +12,13 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/utsname.h>
 
 #include "cmdline.h"
 #include "hdf5.h"
 #include "psi_passthrough_filter.h"
 
-enum { NDIM=3, MAX_IMAGE_DIM=8000,  MAX_CHUNK_SIZE=MAX_IMAGE_DIM*2, MAX_BASENAME_LENGTH=256 };
+enum { NDIM=3, MAX_IMAGE_DIM=8000, MAX_BASENAME_LENGTH=256, INIT_VALUE=127 };
 
 double timediff(const struct timeval *start, const struct timeval *end)
 {
@@ -27,12 +28,14 @@ double timediff(const struct timeval *start, const struct timeval *end)
 int main(int argc, char *argv[])
 {
 
-	struct timeval raw_start = {0,0};
-	struct timeval raw_end = {0,0};
-	struct timeval h5_start = {0,0};
-	struct timeval h5_end = {0,0};
-	double raw_elapsed = 0.;
-	double h5_elapsed = 0.;
+	struct timeval wall_raw_start = {0,0};
+	struct timeval wall_raw_end = {0,0};
+	struct timeval wall_h5_start = {0,0};
+	struct timeval wall_h5_end = {0,0};
+	clock_t cpu_raw_start, cpu_raw_end, cpu_h5_end, cpu_h5_start;
+	double cpu_raw_elapsed, cpu_h5_elapsed;
+	double  wall_raw_elapsed = 0.;
+	double wall_h5_elapsed = 0.;
 	long long nbytes;
 	long long ncalls;
 	double overhead, overhead_per_chunk;
@@ -85,7 +88,7 @@ int main(int argc, char *argv[])
 		perror("failed to allocate buffer space");
 		goto fail;
 	}
-	memset(buf, 255, MAX_CHUNK_SIZE);
+	memset(buf, INIT_VALUE, chunk_size);
 
 	strncpy(rawfile_name, args.basename_arg,MAX_BASENAME_LENGTH);
 	strncpy(rawfile_name+strlen(args.basename_arg), rawsuffix,4);
@@ -95,6 +98,20 @@ int main(int argc, char *argv[])
 
 	unlink(rawfile_name);
 	unlink(h5file_name);
+
+
+	// show run parameters and node information
+
+	time_t now;
+	now = time(NULL);
+	printf("#PARAM date              : %s", ctime(&now));
+
+	struct utsname uts;
+	if (uname(&uts) != -1) {
+		printf("#PARAM Node name         : %s\n", uts.nodename);
+		printf("#PARAM OS Release        : %s\n", uts.release);
+		printf("#PARAM Machine           : %s\n", uts.machine);
+	}
 
 	printf("#PARAM rawfile name      : %s\n", rawfile_name);
 	printf("#PARAM h5file name       : %s\n", h5file_name );
@@ -106,7 +123,8 @@ int main(int argc, char *argv[])
 
 	// ======== RAW writes ===============
 	printf("# start raw writes ...\n");
-	status = gettimeofday(&raw_start, NULL);
+	status = gettimeofday(&wall_raw_start, NULL);
+	cpu_raw_start = clock();
 
 	rawfd = open(rawfile_name, O_RDWR|O_CREAT|O_TRUNC, S_IRWXU);
 	if (rawfd == -1) {
@@ -128,19 +146,22 @@ int main(int argc, char *argv[])
 		perror("ERROR: close of raw file failed");
 		goto fail;
 	}
-	status = gettimeofday(&raw_end, NULL);
+	status = gettimeofday(&wall_raw_end, NULL);
+	cpu_raw_end = clock();
 	printf("# raw write done\n");
 
-	raw_elapsed = timediff(&raw_start, &raw_end);
-	printf("# elapsed time for raw writes: %.3lfs\n", raw_elapsed);
+	wall_raw_elapsed = timediff(&wall_raw_start, &wall_raw_end);
+	cpu_raw_elapsed = (double) (cpu_raw_end - cpu_raw_start)/(double) CLOCKS_PER_SEC;
+	printf("# elapsed time for raw writes: %.3lfs\n", wall_raw_elapsed);
 
 	// ========== HDF5 writes ========================
 
 	// prepare the file
 
 	herr_t ret;
-	hid_t h5fileid, space, dcpl, dset;
+	hid_t h5fileid, space, memspace, dcpl, dset;
 	hsize_t dims[NDIM], chunk[NDIM], offset[NDIM];
+	hsize_t start[NDIM],  count[NDIM];
 
 	char dataset_name[] = "data";
 
@@ -202,23 +223,67 @@ int main(int argc, char *argv[])
 
     // reopen the file and start the raw writes
 	printf("# start HDF5 writes ...\n");
-	status = gettimeofday(&h5_start, NULL);
+	status = gettimeofday(&wall_h5_start, NULL);
+	cpu_h5_start = clock();
 
 	h5fileid = H5Fopen(h5file_name,H5F_ACC_RDWR, H5P_DEFAULT);
 	if (h5fileid < 0) goto fail;
 	dset = H5Dopen(h5fileid, dataset_name, H5P_DEFAULT);
 	if (dset < 0) goto fail;
 
-	offset[1] = 0;
-	offset[2] = 0;
+	if (!args.traditional_flag) {
+		printf("# use new H5PSIdirect_write() call\n");
+		offset[1] = 0;
+		offset[2] = 0;
 
-	int step = args.chunk_size_arg;
-	for (long long i = 0; i < ncalls; i++) {
-		offset[0] = i*step;
-		ret = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, chunk_size, (void *) buf);
-		if (ret < 0) {
-			printf("hdf5 write failed\n");
+		int step = args.chunk_size_arg;
+		for (long long i = 0; i < ncalls; i++) {
+			offset[0] = i*step;
+			ret = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, chunk_size, (void *) buf);
+			if (ret < 0) {
+				printf("hdf5 write failed\n");
+				goto fail;
+			}
+		}
+	} else {
+		printf("# use traditional H5Dwrite() call\n");
+		// ==== traditional, no direct write
+		dims[0] = args.chunk_size_arg;
+		dims[1] = args.ny_arg;
+		dims[2] = args.nx_arg;
+		memspace = H5Screate_simple(NDIM, dims, NULL);
+		if (memspace < 0) {
+			printf("ERROR: failed to get memspace\n");
 			goto fail;
+		}
+
+
+		start[0] = 0;
+		start[1] = 0;
+		start[2] = 0;
+
+		count[0] = args.chunk_size_arg;
+		count[1] = args.ny_arg;
+		count[2] = args.nx_arg;
+
+		space = H5Dget_space (dset);
+
+		int step = args.chunk_size_arg;
+		for (long long i = 0; i < ncalls; i++) {
+
+			status = H5Sselect_hyperslab (space, H5S_SELECT_SET, start, NULL, count, NULL);
+			if (status < 0) {
+				printf("ERROR: select hyperslab failed\n");
+				goto fail;
+			}
+			status = H5Dwrite (dset, H5T_NATIVE_UINT8, memspace, space, H5P_DEFAULT, buf);
+			if (status < 0) {
+				printf("ERROR: write to hdf5 file failed\n");
+				goto fail;
+			}
+
+			start[0] += step;
+
 		}
 	}
 
@@ -228,32 +293,94 @@ int main(int argc, char *argv[])
 		goto fail;
 	}
 
-	status = gettimeofday(&h5_end, NULL);
+	status = gettimeofday(&wall_h5_end, NULL);
+	cpu_h5_end = clock();
+
 	printf("# HDF5 write done\n");
 
-	h5_elapsed = timediff(&h5_start, &h5_end);
-	printf("# elapsed time for hdf5 writes: %.3lfs\n", h5_elapsed);
+	wall_h5_elapsed = timediff(&wall_h5_start, &wall_h5_end);
+	cpu_h5_elapsed = (double) (cpu_h5_end - cpu_h5_start) / (double) CLOCKS_PER_SEC;
+	printf("# elapsed time for hdf5 writes: %.3lfs\n", wall_h5_elapsed);
 
-	overhead = h5_elapsed - raw_elapsed;
+
+	// report results
+	overhead = wall_h5_elapsed - wall_raw_elapsed;
 	overhead_per_chunk = overhead/ncalls;
 
 	stat(rawfile_name, &raw_filestat);
 	stat(h5file_name, &h5_filestat);
 
 	printf("#\n");
-	printf("#RESULTS h5 elapsed time [s]         : %.3lf\n",   h5_elapsed);
-	printf("#RESULTS raw elapsed time [s]        : %.3lf\n", raw_elapsed);
+	if (args.traditional_flag) {
+		printf("#RESULTS for traditional H5Dwrite() call\n");
+	} else {
+		printf("#RESULTS for H5PSIdirect_write() call\n");
+	}
+
+	printf("#RESULTS h5 elapsed time [s]         : %.3lf\n", wall_h5_elapsed);
+	printf("#RESULTS raw elapsed time [s]        : %.3lf\n", wall_raw_elapsed);
+	printf("#RESULTS h5 cpu+sys time [s]         : %.3lf\n", cpu_h5_elapsed);
+	printf("#RESULTS raw cpu+sys time [s]        : %.3lf\n", cpu_raw_elapsed);
 	printf("#RESULTS overhead [s]                : %.3lf\n",  overhead);
 	printf("#RESULTS overhead per chunk [us]     : %.3lf\n",  overhead_per_chunk*1.e+6);
-	printf("#RESULTS h5  peformance1 [call/s]    : %.3lf\n",  (double)ncalls/h5_elapsed);
-	printf("#RESULTS raw peformance1 [call/s]    : %.3lf\n",  (double)ncalls/raw_elapsed);
-	printf("#RESULTS h5  performance2 [MiB/s]    : %.1lf\n",  (double)nbytes/h5_elapsed/(1024.*1024.));
-	printf("#RESULTS raw performance2 [MiB/s]    : %.1lf\n",  (double)nbytes/raw_elapsed/(1024.*1024.));
-	printf("#RESULTS h5  relative performance [%%]: %.0lf\n", 100.*raw_elapsed/h5_elapsed);
+	printf("#RESULTS h5  peformance1 [call/s]    : %.3lf\n",  (double)ncalls/wall_h5_elapsed);
+	printf("#RESULTS raw peformance1 [call/s]    : %.3lf\n",  (double)ncalls/wall_raw_elapsed);
+	printf("#RESULTS h5  performance2 [MiB/s]    : %.1lf\n",  (double)nbytes/wall_h5_elapsed/(1024.*1024.));
+	printf("#RESULTS raw performance2 [MiB/s]    : %.1lf\n",  (double)nbytes/wall_raw_elapsed/(1024.*1024.));
+	printf("#RESULTS h5  relative performance [%%]: %.0lf\n", 100.*wall_raw_elapsed/wall_h5_elapsed);
 	printf("#RESULTS h5  filesize [Byte]         : %lli\n", (long long) h5_filestat.st_size);
 	printf("#RESULTS raw filesize [Byte]         : %lli\n", (long long) raw_filestat.st_size);
 	printf("#RESULTS h5 file size overhead [%%]   : %.2lf\n", 100.*(double)(h5_filestat.st_size - raw_filestat.st_size)/(double)raw_filestat.st_size);
 	printf("#\n");
+
+	// read some data back
+	memset(buf, 0, chunk_size);  // read data back to buffer, initialize with zeroes ...
+
+	printf("# read first chunk back ...\n");
+	h5fileid = H5Fopen(h5file_name,H5F_ACC_RDWR, H5P_DEFAULT);
+	if (h5fileid < 0) goto fail;
+	dset = H5Dopen(h5fileid, dataset_name, H5P_DEFAULT);
+	if (dset < 0) goto fail;
+
+    /*
+     * Define and select the hyperslab to use for reading.
+     */
+
+
+
+    space = H5Dget_space (dset);
+    start[0] = 0;
+    start[1] = 0;
+    start[2] = 0;
+
+
+    count[0] = args.chunk_size_arg;
+    count[1] = args.ny_arg;
+    count[2] = args.nx_arg;
+
+    status = H5Sselect_hyperslab (space, H5S_SELECT_SET, start, NULL, count, NULL);
+
+    /*
+     * Read the data using the previously defined hyperslab.
+     */
+    status = H5Dread (dset, H5T_NATIVE_UINT8, H5S_ALL, space, H5P_DEFAULT, buf);
+    if (status < 0) {
+    	printf("ERROR: failed to read back from hdf5 file\n");
+    	goto fail;
+    }
+
+
+    for (long long i=0; i<args.chunk_size_arg; i++) {
+    	if (buf[i] != INIT_VALUE) {
+    		printf("ERROR: read of HDF5 file returned bogus value %i at byte %lli\n", buf[i], i);
+    		goto fail;
+    	}
+    }
+    printf("# finished to read back first chunk.");
+    H5Sclose(space);
+    H5Dclose(dset);
+    H5Fclose(h5fileid);
+
 
 
     exit(0);
