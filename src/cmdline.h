@@ -56,6 +56,9 @@ struct gengetopt_args_info
   const char *basename_help; /**< @brief basename of output files, will add .data and .h5 help description.  */
   int traditional_flag;	/**< @brief run with traditional API, don't use direct writes (default=off).  */
   const char *traditional_help; /**< @brief run with traditional API, don't use direct writes help description.  */
+  char * json_arg;	/**< @brief append results to given file using json formating.  */
+  char * json_orig;	/**< @brief append results to given file using json formating original value given at command line.  */
+  const char *json_help; /**< @brief append results to given file using json formating help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -65,6 +68,7 @@ struct gengetopt_args_info
   unsigned int chunk_size_given ;	/**< @brief Whether chunk-size was given.  */
   unsigned int basename_given ;	/**< @brief Whether basename was given.  */
   unsigned int traditional_given ;	/**< @brief Whether traditional was given.  */
+  unsigned int json_given ;	/**< @brief Whether json was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */
   unsigned inputs_num ; /**< @brief unamed options number */
