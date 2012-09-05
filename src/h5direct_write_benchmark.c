@@ -217,14 +217,29 @@ int main(int argc, char *argv[])
 			goto fail;
 		}
 		ret = H5Pset_meta_block_size(fapl, METADATA_BLOCK_SIZE);
-		if (ret < 0) goto fail;
+		if (ret < 0) {
+			printf("#failed to set meta block size\n");
+			goto fail;
+		}
 
-		/*
+
 		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
 		ret = H5Pget_mdc_config(fapl, &cache_config);
-		if (ret < 1) goto fail;
-		*/
+		if (ret < 0) {
+			printf("#ERROR failed to get mdc config\n");
+			goto fail;
+		}
+		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+		cache_config.set_initial_size = 1;
+		cache_config.initial_size = 16*1024*1024;
+		cache_config.min_size = 8*1024*1024;
+		cache_config.max_size = 128*1024*1024;
 
+		ret = H5Pset_mdc_config(fapl, &cache_config);
+		if (ret < 0) {
+			printf("#ERROR set_mdc_config failed\n");
+			goto fail;
+		}
 
 		// herr_t H5Pget_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
 		// version = H5AC__CURR_CACHE_CONFIG_VERSION
