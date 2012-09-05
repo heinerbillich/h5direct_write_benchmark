@@ -19,7 +19,7 @@
 #include "hdf5.h"
 #include "psi_passthrough_filter.h"
 
-enum { NDIM=3, MAX_IMAGE_DIM=8000, MAX_BASENAME_LENGTH=256, INIT_VALUE=127 };
+enum { NDIM=3, MAX_IMAGE_DIM=8000, MAX_BASENAME_LENGTH=256, INIT_VALUE=127, METADATA_BLOCK_SIZE=1024*1024 };
 
 double timediff(const struct timeval *start, const struct timeval *end)
 {
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 			printf("failed to create file access property list\n");
 			goto fail;
 		}
-		ret = H5Pset_meta_block_size(fapl, 2*1024*1024);
+		ret = H5Pset_meta_block_size(fapl, METADATA_BLOCK_SIZE);
 		if (ret < 0) goto fail;
 
 		/*
