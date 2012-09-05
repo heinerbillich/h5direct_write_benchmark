@@ -8,4 +8,5 @@ option "nimages"    z "number of images (z-direction of array)" int required
 option "chunk-size"  c "number of images per chunk"                        int default="1" optional
 option "basename" o "basename of output files, will add .data and .h5"                    string default="bench" optional
 option "traditional" t "run with traditional API, don't use direct writes" flag off
+option "metadata-tuning" m "apply hdf5 metadata tuning" flag off
 option "json" j "append results to given file using json formating" string  optional

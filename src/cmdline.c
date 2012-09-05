@@ -40,6 +40,7 @@ const char *gengetopt_args_info_help[] = {
   "  -c, --chunk-size=INT   number of images per chunk  (default=`1')",
   "  -o, --basename=STRING  basename of output files, will add .data and .h5  \n                           (default=`bench')",
   "  -t, --traditional      run with traditional API, don't use direct writes  \n                           (default=off)",
+  "  -m, --metadata-tuning  apply hdf5 metadata tuning  (default=off)",
   "  -j, --json=STRING      append results to given file using json formating",
     0
 };
@@ -76,6 +77,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->chunk_size_given = 0 ;
   args_info->basename_given = 0 ;
   args_info->traditional_given = 0 ;
+  args_info->metadata_tuning_given = 0 ;
   args_info->json_given = 0 ;
 }
 
@@ -91,6 +93,7 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->basename_arg = gengetopt_strdup ("bench");
   args_info->basename_orig = NULL;
   args_info->traditional_flag = 0;
+  args_info->metadata_tuning_flag = 0;
   args_info->json_arg = NULL;
   args_info->json_orig = NULL;
   
@@ -109,7 +112,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->chunk_size_help = gengetopt_args_info_help[5] ;
   args_info->basename_help = gengetopt_args_info_help[6] ;
   args_info->traditional_help = gengetopt_args_info_help[7] ;
-  args_info->json_help = gengetopt_args_info_help[8] ;
+  args_info->metadata_tuning_help = gengetopt_args_info_help[8] ;
+  args_info->json_help = gengetopt_args_info_help[9] ;
   
 }
 
@@ -252,6 +256,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "basename", args_info->basename_orig, 0);
   if (args_info->traditional_given)
     write_into_file(outfile, "traditional", 0, 0 );
+  if (args_info->metadata_tuning_given)
+    write_into_file(outfile, "metadata-tuning", 0, 0 );
   if (args_info->json_given)
     write_into_file(outfile, "json", args_info->json_orig, 0);
   
@@ -556,11 +562,12 @@ cmdline_parser_internal (
         { "chunk-size",	1, NULL, 'c' },
         { "basename",	1, NULL, 'o' },
         { "traditional",	0, NULL, 't' },
+        { "metadata-tuning",	0, NULL, 'm' },
         { "json",	1, NULL, 'j' },
         { 0,  0, 0, 0 }
       };
 
-      c = getopt_long (argc, argv, "hVx:y:z:c:o:tj:", long_options, &option_index);
+      c = getopt_long (argc, argv, "hVx:y:z:c:o:tmj:", long_options, &option_index);
 
       if (c == -1) break;	/* Exit from `while (1)' loop.  */
 
@@ -642,6 +649,16 @@ cmdline_parser_internal (
           if (update_arg((void *)&(args_info->traditional_flag), 0, &(args_info->traditional_given),
               &(local_args_info.traditional_given), optarg, 0, 0, ARG_FLAG,
               check_ambiguity, override, 1, 0, "traditional", 't',
+              additional_error))
+            goto failure;
+        
+          break;
+        case 'm':	/* apply hdf5 metadata tuning.  */
+        
+        
+          if (update_arg((void *)&(args_info->metadata_tuning_flag), 0, &(args_info->metadata_tuning_given),
+              &(local_args_info.metadata_tuning_given), optarg, 0, 0, ARG_FLAG,
+              check_ambiguity, override, 1, 0, "metadata-tuning", 'm',
               additional_error))
             goto failure;
         

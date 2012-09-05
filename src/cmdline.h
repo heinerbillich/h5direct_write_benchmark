@@ -56,6 +56,8 @@ struct gengetopt_args_info
   const char *basename_help; /**< @brief basename of output files, will add .data and .h5 help description.  */
   int traditional_flag;	/**< @brief run with traditional API, don't use direct writes (default=off).  */
   const char *traditional_help; /**< @brief run with traditional API, don't use direct writes help description.  */
+  int metadata_tuning_flag;	/**< @brief apply hdf5 metadata tuning (default=off).  */
+  const char *metadata_tuning_help; /**< @brief apply hdf5 metadata tuning help description.  */
   char * json_arg;	/**< @brief append results to given file using json formating.  */
   char * json_orig;	/**< @brief append results to given file using json formating original value given at command line.  */
   const char *json_help; /**< @brief append results to given file using json formating help description.  */
@@ -68,6 +70,7 @@ struct gengetopt_args_info
   unsigned int chunk_size_given ;	/**< @brief Whether chunk-size was given.  */
   unsigned int basename_given ;	/**< @brief Whether basename was given.  */
   unsigned int traditional_given ;	/**< @brief Whether traditional was given.  */
+  unsigned int metadata_tuning_given ;	/**< @brief Whether metadata-tuning was given.  */
   unsigned int json_given ;	/**< @brief Whether json was given.  */
 
   char **inputs ; /**< @brief unamed options (options without names) */

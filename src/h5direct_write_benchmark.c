@@ -149,9 +149,11 @@ int main(int argc, char *argv[])
 	// create the HDF5 file
 	// --------------------
 	herr_t ret;
-	hid_t h5fileid, space, memspace, dcpl, dset;
+	hid_t h5fileid, space, memspace, dcpl, dset, fapl;
 	hsize_t dims[NDIM], chunk[NDIM], offset[NDIM];
 	hsize_t start[NDIM], count[NDIM];
+	H5AC_cache_config_t cache_config;
+
 
 	const char dataset_name[] = "data";
 
@@ -207,7 +209,32 @@ int main(int argc, char *argv[])
 	status = gettimeofday(&wall_h5_start, NULL);
 	cpu_h5_start = clock();
 
-	h5fileid = H5Fopen(h5file_name,H5F_ACC_RDWR, H5P_DEFAULT);
+	if (args.metadata_tuning_flag) {
+		printf("# apply metadata tuning for HDF5\n");
+		fapl = H5Pcreate(H5P_FILE_ACCESS);
+		if (fapl < 0) {
+			printf("failed to create file access property list\n");
+			goto fail;
+		}
+		ret = H5Pset_meta_block_size(fapl, 2*1024*1024);
+		if (ret < 0) goto fail;
+
+		/*
+		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+		ret = H5Pget_mdc_config(fapl, &cache_config);
+		if (ret < 1) goto fail;
+		*/
+
+
+		// herr_t H5Pget_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
+		// version = H5AC__CURR_CACHE_CONFIG_VERSION
+		// herr_t H5Pset_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
+		// herr_t H5Pset_meta_block_size( hid_t fapl_id, hsize_t size )
+	} else {
+		fapl = H5P_DEFAULT;
+	}
+
+	h5fileid = H5Fopen(h5file_name,H5F_ACC_RDWR, fapl);
 	if (h5fileid < 0) goto fail;
 	dset = H5Dopen(h5fileid, dataset_name, H5P_DEFAULT);
 	if (dset < 0) goto fail;
@@ -341,6 +368,7 @@ int main(int argc, char *argv[])
 	printf("#PARAM total size [Byte] : %lli\n", nbytes);
 	printf("#PARAM array shape       : (z=%i,y=%i,x=%i)\n", args.nimages_arg, args.ny_arg, args.nx_arg);
 	printf("#PARAM chunk shape       : (z=%i,y=%i,x=%i)\n",  args.chunk_size_arg, args.ny_arg, args.nx_arg);
+	printf("#PARAM metadata tuning   : %s\n", args.metadata_tuning_flag?"yes":"no");
 
 
 	// report results
