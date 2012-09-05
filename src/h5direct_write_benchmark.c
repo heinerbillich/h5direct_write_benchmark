@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 		}
 		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
 		cache_config.set_initial_size = 1;
-		cache_config.initial_size = 16*1024*1024;
+		cache_config.initial_size = 32*1024*1024;
 		cache_config.min_size = 8*1024*1024;
 		cache_config.max_size = 128*1024*1024;
 
