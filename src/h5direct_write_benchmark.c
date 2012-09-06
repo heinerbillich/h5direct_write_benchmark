@@ -145,6 +145,9 @@ int main(int argc, char *argv[])
 	cpu_raw_elapsed = (double) (cpu_raw_end - cpu_raw_start)/(double) CLOCKS_PER_SEC;
 	printf("# elapsed time for raw writes: %.3lfs\n", wall_raw_elapsed);
 
+	// opent the raw file again, just to ensure that the HDF5 file will get a different filedescriptor number
+	// this makes parsing of strace output much easier - the raw file has fd=3 and the h5file fd=4
+	rawfd = open(rawfile_name, O_RDONLY);
 
 	// create the HDF5 file
 	// --------------------
@@ -153,6 +156,46 @@ int main(int argc, char *argv[])
 	hsize_t dims[NDIM], chunk[NDIM], offset[NDIM];
 	hsize_t start[NDIM], count[NDIM];
 	H5AC_cache_config_t cache_config;
+
+	if (args.metadata_tuning_flag) {
+		printf("# apply metadata tuning for HDF5\n");
+		fapl = H5Pcreate(H5P_FILE_ACCESS);
+		if (fapl < 0) {
+			printf("failed to create file access property list\n");
+			goto fail;
+		}
+		ret = H5Pset_meta_block_size(fapl, METADATA_BLOCK_SIZE);
+		if (ret < 0) {
+			printf("#failed to set meta block size\n");
+			goto fail;
+		}
+
+
+		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+		ret = H5Pget_mdc_config(fapl, &cache_config);
+		if (ret < 0) {
+			printf("#ERROR failed to get mdc config\n");
+			goto fail;
+		}
+		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
+		cache_config.set_initial_size = 1;
+		cache_config.initial_size = 32*1024*1024;
+		cache_config.min_size = 8*1024*1024;
+		cache_config.max_size = 128*1024*1024;
+
+		ret = H5Pset_mdc_config(fapl, &cache_config);
+		if (ret < 0) {
+			printf("#ERROR set_mdc_config failed\n");
+			goto fail;
+		}
+
+		// herr_t H5Pget_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
+		// version = H5AC__CURR_CACHE_CONFIG_VERSION
+		// herr_t H5Pset_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
+		// herr_t H5Pset_meta_block_size( hid_t fapl_id, hsize_t size )
+	} else {
+		fapl = H5P_DEFAULT;
+	}
 
 
 	const char dataset_name[] = "data";
@@ -164,7 +207,7 @@ int main(int argc, char *argv[])
 	}
 
 	// file
-    h5fileid = H5Fcreate(h5file_name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    h5fileid = H5Fcreate(h5file_name, H5F_ACC_TRUNC, H5P_DEFAULT, fapl);
     if (h5fileid < 0) {
     	goto fail;
     }
@@ -209,45 +252,6 @@ int main(int argc, char *argv[])
 	status = gettimeofday(&wall_h5_start, NULL);
 	cpu_h5_start = clock();
 
-	if (args.metadata_tuning_flag) {
-		printf("# apply metadata tuning for HDF5\n");
-		fapl = H5Pcreate(H5P_FILE_ACCESS);
-		if (fapl < 0) {
-			printf("failed to create file access property list\n");
-			goto fail;
-		}
-		ret = H5Pset_meta_block_size(fapl, METADATA_BLOCK_SIZE);
-		if (ret < 0) {
-			printf("#failed to set meta block size\n");
-			goto fail;
-		}
-
-
-		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
-		ret = H5Pget_mdc_config(fapl, &cache_config);
-		if (ret < 0) {
-			printf("#ERROR failed to get mdc config\n");
-			goto fail;
-		}
-		cache_config.version = H5AC__CURR_CACHE_CONFIG_VERSION;
-		cache_config.set_initial_size = 1;
-		cache_config.initial_size = 32*1024*1024;
-		cache_config.min_size = 8*1024*1024;
-		cache_config.max_size = 128*1024*1024;
-
-		ret = H5Pset_mdc_config(fapl, &cache_config);
-		if (ret < 0) {
-			printf("#ERROR set_mdc_config failed\n");
-			goto fail;
-		}
-
-		// herr_t H5Pget_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
-		// version = H5AC__CURR_CACHE_CONFIG_VERSION
-		// herr_t H5Pset_mdc_config(hid_t plist_id, H5AC_cache_config_t *config_ptr)
-		// herr_t H5Pset_meta_block_size( hid_t fapl_id, hsize_t size )
-	} else {
-		fapl = H5P_DEFAULT;
-	}
 
 	h5fileid = H5Fopen(h5file_name,H5F_ACC_RDWR, fapl);
 	if (h5fileid < 0) goto fail;
@@ -319,6 +323,7 @@ int main(int argc, char *argv[])
 	cpu_h5_end = clock();
 
 	printf("# HDF5 write done\n");
+	close(rawfd);
 
 	wall_h5_elapsed = timediff(&wall_h5_start, &wall_h5_end);
 	cpu_h5_elapsed = (double) (cpu_h5_end - cpu_h5_start) / (double) CLOCKS_PER_SEC;
