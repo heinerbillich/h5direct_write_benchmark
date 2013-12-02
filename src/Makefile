@@ -1,6 +1,6 @@
-topdir = $(shell pwd)/..
 
-h5dir = $(topdir)/../hdf5
+# change h5dir to point to your HDF5 installation. 1.8.11 or later required
+h5dir = /Users/billich/hdf5-1.8.12
 
 h5cc = $(h5dir)/bin/h5cc
 

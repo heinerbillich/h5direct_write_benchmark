@@ -7,6 +7,7 @@
 
 
 #include "hdf5.h"
+#include "hdf5_hl.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -131,9 +132,9 @@ main (int argc, char *argv[])
     //            wdata[0]);
     printf(">> Test: normal write\n");
     hsize_t offset[2] = {0,0};
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status < 0) {
-    	printf("ERROR: H5PSIdirect_write failed\n");
+    	printf("ERROR: H5DOwrite_chunk failed\n");
     	exit(1);
     } else {
     	printf("Success\n\n");
@@ -142,9 +143,9 @@ main (int argc, char *argv[])
 
     printf(">> Test: offset[0] is not on chunk boundary\n");
     offset[0] = 1;
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-      	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+      	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
         exit(1);
     } else {
         printf("Failed as expected\n\n");
@@ -153,9 +154,9 @@ main (int argc, char *argv[])
     printf(">> Test: offset[1] is not on chunk boundary\n");
     offset[0] = 0;
     offset[1] = 1;
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-      	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+      	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
         exit(1);
     } else {
         printf("Failed as expected\n\n");
@@ -164,9 +165,9 @@ main (int argc, char *argv[])
 
     printf(">> Test: offset[0] is out of bounds\n");
     offset[0] = 2*CHUNK0;
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
@@ -174,54 +175,47 @@ main (int argc, char *argv[])
 
     printf(">> Test: offset[1] is out of bounds\n");
     offset[1] = 2*CHUNK1; offset[0] = 0;
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
     }
 
     printf(">> Test: offset == NULL \n");
-#if 0
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, NULL, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, NULL, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
     }
-#else
-    printf("SKIPPED, triggers segmentation fault in current version\n\n");
-#endif
 
     printf("Test dset is no dataset\n");
     offset[0] = 0; offset[1] = 0;
-    status = H5PSIdirect_write(dset+1, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
+    status = H5DOwrite_chunk(dset+1, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4, (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
     }
 
     printf(">> Test: zero data_size\n");
-#if 0
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, 0, (void *) wdata);
+
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, 0, (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
     }
-#else
-    printf("SKIPPED, triggers assert() in current version\n\n");
-#endif
 
     printf("Test buf == NULL\n");
-    status = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4,  NULL);
+    status = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4,  NULL);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
@@ -229,9 +223,9 @@ main (int argc, char *argv[])
 
 
     printf(">> Test: bogus dxpl\n");
-    status = H5PSIdirect_write(dset, 1, 0, offset, CHUNK0*CHUNK1*4,  (void *) wdata);
+    status = H5DOwrite_chunk(dset, 1, 0, offset, CHUNK0*CHUNK1*4,  (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");
@@ -244,9 +238,9 @@ main (int argc, char *argv[])
     	exit (1);
     }
     printf(">> Test: with contigous data set\n");
-    status = H5PSIdirect_write(dset2, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4,  (void *) wdata);
+    status = H5DOwrite_chunk(dset2, H5P_DEFAULT, 0, offset, CHUNK0*CHUNK1*4,  (void *) wdata);
     if (status >= 0) {
-          	printf("ERROR: H5PSIdirect_write should fail, someting is wrong\n");
+          	printf("ERROR: H5DOwrite_chunk should fail, someting is wrong\n");
             exit(1);
     } else {
             printf("Failed as expected\n\n");

@@ -17,6 +17,7 @@
 
 #include "cmdline.h"
 #include "hdf5.h"
+#include "hdf5_hl.h"
 #include "psi_passthrough_filter.h"
 
 enum { NDIM=3, MAX_IMAGE_DIM=8000, MAX_BASENAME_LENGTH=256, INIT_VALUE=127, METADATA_BLOCK_SIZE=1024*1024 };
@@ -258,15 +259,15 @@ int main(int argc, char *argv[])
 	dset = H5Dopen(h5fileid, dataset_name, H5P_DEFAULT);
 	if (dset < 0) goto fail;
 
-	if (!args.traditional_flag) {   // use new H5PSIdirect_write() call
-		printf("# use new H5PSIdirect_write() call\n");
+	if (!args.traditional_flag) {   // use new H5DOwrite_chunk() call
+		printf("# use new H5DOwrite_chunk() call\n");
 		offset[1] = 0;
 		offset[2] = 0;
 
 		int step = args.chunk_size_arg;
 		for (long long i = 0; i < ncalls; i++) {
 			offset[0] = i*step;
-			ret = H5PSIdirect_write(dset, H5P_DEFAULT, 0, offset, chunk_size, (void *) buf);
+			ret = H5DOwrite_chunk(dset, H5P_DEFAULT, 0, offset, chunk_size, (void *) buf);
 			if (ret < 0) {
 				printf("hdf5 write failed\n");
 				goto fail;
@@ -403,7 +404,7 @@ int main(int argc, char *argv[])
 	if (args.traditional_flag) {
 		printf("#RESULTS for traditional H5Dwrite() call\n");
 	} else {
-		printf("#RESULTS for H5PSIdirect_write() call\n");
+		printf("#RESULTS for H5DOwrite_chunk() call\n");
 	}
 
 	printf("#RESULTS h5 elapsed time [s]         : %.3lf\n", wall_h5_elapsed);
