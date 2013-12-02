@@ -390,6 +390,11 @@ int main(int argc, char *argv[])
 	printf("#PARAM array shape       : (z=%i,y=%i,x=%i)\n", args.nimages_arg, args.ny_arg, args.nx_arg);
 	printf("#PARAM chunk shape       : (z=%i,y=%i,x=%i)\n",  args.chunk_size_arg, args.ny_arg, args.nx_arg);
 	printf("#PARAM metadata tuning   : %s\n", args.metadata_tuning_flag?"yes":"no");
+	if (args.traditional_flag) {   
+           printf("PARAM h5 write mode: traditional\n");
+        } else {
+           printf("PARAM h5 write mode: direct chunk write\n");
+        }
 
 
 	// report results
