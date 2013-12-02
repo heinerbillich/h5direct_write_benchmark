@@ -1,6 +1,9 @@
-test routines for H5PSIDirect_Write()
+test and benchmark routines for H5DOwrite_chunk()
+
+http://www.hdfgroup.org/HDF5/doc/HL/RM_HDF5Optimized.html
 
 2012-09 initial version
+2013-12 adapt to official version in HDF5 1.8.11 and later
 
 Heiner.Billich@psi.ch
 
